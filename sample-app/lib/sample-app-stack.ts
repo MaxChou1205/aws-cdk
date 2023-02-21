@@ -10,11 +10,10 @@ export class SampleAppStack extends cdk.Stack {
     const bucket = new Bucket(this, "MySampleAppBucket", {
       encryption: BucketEncryption.S3_MANAGED
     });
-    // The code that defines your stack goes here
 
-    // example resource
-    // const queue = new sqs.Queue(this, 'SampleAppQueue', {
-    //   visibilityTimeout: cdk.Duration.seconds(300)
-    // });
+    new cdk.CfnOutput(this, "MySimpleAppBucketNameExport", {
+      value: bucket.bucketName,
+      exportName: "MySimpleAppBucketName"
+    });
   }
 }
