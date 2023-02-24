@@ -45,7 +45,7 @@ export class SampleAppStack extends cdk.Stack {
         new GitHubSourceAction({
           actionName: "Pipeline_Source",
           owner: "MaxChou1205",
-          repo: "aws-cdk/sample-app",
+          repo: "aws-cdk",
           branch: "master",
           oauthToken: SecretValue.secretsManager("github-pipeline-token"),
           output: sourceOutput
