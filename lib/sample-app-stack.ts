@@ -1,6 +1,8 @@
 import * as cdk from "aws-cdk-lib";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3_deployment from "aws-cdk-lib/aws-s3-deployment";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as cloudfront_origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
@@ -17,8 +19,49 @@ export class SampleAppStack extends cdk.Stack {
 
     new s3_deployment.BucketDeployment(this, "MySampleAppPhotos", {
       sources: [s3_deployment.Source.asset("photos")],
-      destinationBucket: bucket,
-      destinationKeyPrefix: "web/static" // optional prefix in destination bucket
+      destinationBucket: bucket
+      // destinationKeyPrefix: "web/static" // optional prefix in destination bucket
+    });
+
+    const websiteBucket = new s3.Bucket(this, "MySampleWebsiteBucket", {
+      websiteIndexDocument: "index.html",
+      websiteErrorDocument: "index.html"
+    });
+    const originAccessIdentity = new cloudfront.OriginAccessIdentity(
+      this,
+      "MySampleWebsiteBucketAccessIdentity"
+    );
+    websiteBucket.grantRead(originAccessIdentity);
+
+    new s3_deployment.BucketDeployment(this, "MySampleWebsite", {
+      sources: [s3_deployment.Source.asset("frontend/dist")],
+      destinationBucket: websiteBucket
+    });
+
+    const cf = new cloudfront.Distribution(this, "MySampleDistribution", {
+      defaultRootObject: "index.html",
+      defaultBehavior: {
+        origin: new cloudfront_origins.S3Origin(websiteBucket, {
+          originAccessIdentity: originAccessIdentity
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED
+      },
+      errorResponses: [
+        {
+          httpStatus: 403,
+          ttl: cdk.Duration.seconds(60),
+          responsePagePath: "/index.html",
+          responseHttpStatus: 200
+        },
+        {
+          httpStatus: 404,
+          ttl: cdk.Duration.seconds(60),
+          responsePagePath: "/index.html",
+          responseHttpStatus: 200
+        }
+      ]
     });
 
     const getPhotos = new NodejsFunction(this, "MySimpleAppLambda", {
