@@ -5,6 +5,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as path from "path";
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 
 export class SampleAppStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
@@ -29,8 +30,22 @@ export class SampleAppStack extends cdk.Stack {
       }
     });
 
+    const bucketContainerPermissions = new PolicyStatement();
+    bucketContainerPermissions.addResources(bucket.bucketArn);
+    bucketContainerPermissions.addActions("s3:ListBucket");
+
+    const bucketPermissions = new PolicyStatement();
+    bucketPermissions.addResources(`${bucket.bucketArn}/*`);
+    bucketPermissions.addActions("s3:GetObject", "s3:PutObject");
+
+    getPhotos.addToRolePolicy(bucketPermissions);
+    getPhotos.addToRolePolicy(bucketContainerPermissions);
+
     const api = new apigateway.LambdaRestApi(this, "Endpoint", {
-      handler: getPhotos
+      handler: getPhotos,
+      proxy: false
     });
+    const route = api.root.addResource("getAllPhotos");
+    route.addMethod("GET");
   }
 }
