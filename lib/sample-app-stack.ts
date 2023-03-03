@@ -9,8 +9,11 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as path from "path";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 
+interface SimpleAppStackProps extends cdk.StackProps {
+  envName: string;
+}
 export class SampleAppStack extends cdk.Stack {
-  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
+  constructor(scope: cdk.App, id: string, props?: SimpleAppStackProps) {
     super(scope, id, props);
 
     const bucket = new s3.Bucket(this, "MySampleAppBucket", {
@@ -24,19 +27,13 @@ export class SampleAppStack extends cdk.Stack {
     });
 
     const websiteBucket = new s3.Bucket(this, "MySampleWebsiteBucket", {
-      websiteIndexDocument: "index.html",
-      websiteErrorDocument: "index.html"
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
     });
     const originAccessIdentity = new cloudfront.OriginAccessIdentity(
       this,
       "MySampleWebsiteBucketAccessIdentity"
     );
     websiteBucket.grantRead(originAccessIdentity);
-
-    new s3_deployment.BucketDeployment(this, "MySampleWebsite", {
-      sources: [s3_deployment.Source.asset("frontend/dist")],
-      destinationBucket: websiteBucket
-    });
 
     const cf = new cloudfront.Distribution(this, "MySampleDistribution", {
       defaultRootObject: "index.html",
@@ -62,6 +59,12 @@ export class SampleAppStack extends cdk.Stack {
           responseHttpStatus: 200
         }
       ]
+    });
+
+    new s3_deployment.BucketDeployment(this, "MySampleWebsite", {
+      sources: [s3_deployment.Source.asset("frontend/dist")],
+      destinationBucket: websiteBucket,
+      distribution: cf
     });
 
     const getPhotos = new NodejsFunction(this, "MySimpleAppLambda", {
