@@ -11,6 +11,7 @@ import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import { ICertificate } from "aws-cdk-lib/aws-certificatemanager";
 import { CloudFrontTarget } from "aws-cdk-lib/aws-route53-targets";
+import { S3BucketWithDeploy } from "./s3-bucket-with-deploy";
 
 interface SimpleAppStackProps extends cdk.StackProps {
   envName: string;
@@ -22,14 +23,8 @@ export class SampleAppStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props: SimpleAppStackProps) {
     super(scope, id, props);
 
-    const bucket = new s3.Bucket(this, "MySampleAppBucket", {
+    const { bucket } = new S3BucketWithDeploy(scope, "MySampleAppBucket", {
       encryption: s3.BucketEncryption.S3_MANAGED
-    });
-
-    new s3_deployment.BucketDeployment(this, "MySampleAppPhotos", {
-      sources: [s3_deployment.Source.asset("photos")],
-      destinationBucket: bucket
-      // destinationKeyPrefix: "web/static" // optional prefix in destination bucket
     });
 
     const websiteBucket = new s3.Bucket(this, "MySampleWebsiteBucket", {
