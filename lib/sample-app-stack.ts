@@ -8,12 +8,18 @@ import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as path from "path";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import { ICertificate } from "aws-cdk-lib/aws-certificatemanager";
+import { CloudFrontTarget } from "aws-cdk-lib/aws-route53-targets";
 
 interface SimpleAppStackProps extends cdk.StackProps {
   envName: string;
+  hostedZone: route53.IPublicHostedZone;
+  cert: ICertificate;
+  domain: string;
 }
 export class SampleAppStack extends cdk.Stack {
-  constructor(scope: cdk.App, id: string, props?: SimpleAppStackProps) {
+  constructor(scope: cdk.App, id: string, props: SimpleAppStackProps) {
     super(scope, id, props);
 
     const bucket = new s3.Bucket(this, "MySampleAppBucket", {
@@ -36,6 +42,8 @@ export class SampleAppStack extends cdk.Stack {
     websiteBucket.grantRead(originAccessIdentity);
 
     const cf = new cloudfront.Distribution(this, "MySampleDistribution", {
+      domainNames: [props.domain],
+      certificate: props.cert,
       defaultRootObject: "index.html",
       defaultBehavior: {
         origin: new cloudfront_origins.S3Origin(websiteBucket, {
@@ -60,6 +68,20 @@ export class SampleAppStack extends cdk.Stack {
         }
       ]
     });
+
+    new route53.ARecord(this, "SampleAppARecord", {
+      zone: props.hostedZone,
+      target: route53.RecordTarget.fromAlias(new CloudFrontTarget(cf))
+    });
+    // const recordSet = new route53.CfnRecordSet(this, "SampleAppARecord" + idx, {
+    //   hostedZoneName: props.hostedName,
+    //   name: props.domain,
+    //   type: "A",
+    //   aliasTarget: {
+    //     dnsName: cf.distributionDomainName,
+    //     hostedZoneId: "Z2FDTNDATAQYW2" //https://stackoverflow.com/questions/39665214/get-hosted-zone-for-cloudfront-distribution
+    //   }
+    // });
 
     new s3_deployment.BucketDeployment(this, "MySampleWebsite", {
       sources: [s3_deployment.Source.asset("frontend/dist")],
